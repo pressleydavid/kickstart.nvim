@@ -89,9 +89,11 @@ P.S. You can delete this when you're done too. It's your config now! :)
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
+vim.keymap.set('n', '<LocalLeader>l', '<Plug>(RSendLine)', { desc = 'Send line to R' })
+vim.g.R_debug = 1
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = true
+vim.g.have_nerd_font = false
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
@@ -173,7 +175,7 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 --
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping
 -- or just use <C-\><C-n> to exit terminal mode
-vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
+vim.keymap.set('t', 'jj', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
 -- TIP: Disable arrow keys in normal mode
 vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -230,8 +232,41 @@ vim.opt.rtp:prepend(lazypath)
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
-  'quarto-dev/quarto-nvim',
+  {
+    'R-nvim/R.nvim',
+    lazy = false,
+    version = '~0.1.0',
+    config = function()
+      -- R.nvim configuration
+      -- Basic R settings
+      --      vim.g.R_assign = 0  -- Don't use '<-' for assignment
 
+      -- Wait for VimEnter to ensure plugin is loaded
+      vim.api.nvim_create_autocmd('VimEnter', {
+        callback = function()
+          -- Then set up the FileType autocommand
+          vim.api.nvim_create_autocmd('FileType', {
+            pattern = 'r',
+            callback = function()
+              -- Add a small delay to ensure everything is ready
+              vim.defer_fn(function()
+                vim.cmd [[RStart]]
+              end, 100)
+            end,
+          })
+        end,
+      })
+      vim.g.R_csv_warn = false
+      vim.g.R_min_editor_width = 80
+      vim.g.R_rconsole_width = 0
+      vim.g.R_rconsole_height = 15
+      -- Key mappings for R
+      vim.keymap.set('n', '<localleader>rf', '<Plug>RStart', { desc = 'Start R' })
+      vim.keymap.set('n', '<localleader>rq', '<Plug>RClose', { desc = 'Quit R' })
+      vim.keymap.set('n', '<localleader>l', '<Plug>RSendLine', { desc = 'Send line to R' })
+      vim.keymap.set('v', '<localleader>l', '<Plug>RSendSelection', { desc = 'Send selection to R' })
+    end,
+  },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
@@ -354,7 +389,13 @@ require('lazy').setup({
       { 'nvim-telescope/telescope-ui-select.nvim' },
 
       -- Useful for getting pretty icons, but requires a Nerd Font.
-      { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
+      {
+        'nvim-tree/nvim-web-devicons',
+        lazy = false, -- Make sure this is not lazily loaded
+        config = function()
+          require('nvim-web-devicons').setup { default = true }
+        end,
+      },
     },
     config = function()
       -- Telescope is a fuzzy finder that comes with a lot of different things that
@@ -459,11 +500,11 @@ require('lazy').setup({
       { 'williamboman/mason.nvim', config = true }, -- NOTE: Must be loaded before dependants
       'williamboman/mason-lspconfig.nvim',
       'WhoIsSethDaniel/mason-tool-installer.nvim',
+      'ryanoasis/vim-devicons',
 
       -- Useful status updates for LSP.
       -- NOTE: `opts = {}` is the same as calling `require('fidget').setup({})`
       { 'j-hui/fidget.nvim', opts = {} },
-
       -- Allows extra capabilities provided by nvim-cmp
       'hrsh7th/cmp-nvim-lsp',
     },
@@ -663,6 +704,8 @@ require('lazy').setup({
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
+        ensure_installed = { 'lua_ls', 'pyright', 'r_language_server' },
+        automatic_installation = true,
         handlers = {
           function(server_name)
             local server = servers[server_name] or {}
@@ -900,7 +943,7 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = { 'r', 'rnoweb', 'yaml', 'csv', 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
